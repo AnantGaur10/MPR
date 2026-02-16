@@ -2,6 +2,7 @@ from flask import Flask, render_template, send_file, jsonify, request
 from flask_sock import Sock
 from flask_cors import CORS
 import os
+import subprocess
 import logging
 from pathlib import Path
 import base64
@@ -55,7 +56,7 @@ LABELS_DICT[26] = "ENTER"
 LABELS_DICT[27] = "SPACE"
 LABELS_DICT[28] = "THUMBS_DOWN"
 
-MODEL_PATH = Path(__file__).parent.parent / 'model.p'
+MODEL_PATH = (Path(__file__).parent / 'model.p').resolve()
 model = None
 mp_hands = None
 hands = None
@@ -71,17 +72,30 @@ hand_position_buffer = deque(maxlen=10)
 
 def load_ml_model():
     global model
+    print(f"DEBUG: Loading model from {MODEL_PATH}")
     try:
         if not MODEL_PATH.exists():
+            print(f"DEBUG: Model file does not exist at {MODEL_PATH}")
             return False
+        
+        print(f"DEBUG: File exists. Size: {MODEL_PATH.stat().st_size} bytes")
         with open(MODEL_PATH, 'rb') as f:
             model_dict = pickle.load(f)
+            print("DEBUG: Pickle loaded successfully. Keys:", model_dict.keys() if isinstance(model_dict, dict) else "Not a dict")
+            
         model = model_dict['model']
+        print(f"DEBUG: Model object loaded: {type(model)}")
+        
         if not hasattr(model, 'predict_proba'):
+             print("DEBUG: Model missing predict_proba method")
              return False
+             
+        print("DEBUG: Model loaded successfully!")
         return True
     except Exception as e:
         print(f"Error in load_ml_model: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 def init_mediapipe():
@@ -107,6 +121,10 @@ def init_tts():
         return True
     except Exception as e:
         print(f"Error in init_tts: {e}")
+        if os.name == 'posix':
+            print("Fallback to espeak CLI for Linux/Docker")
+            tts_engine = "espeak_cli"
+            return True
         return False
 
 def process_landmarks(hand_landmarks):
@@ -232,8 +250,23 @@ def predict_sign(image_data, pred_buffer, frame_count, local_hand_buffer, user_m
 
 def text_to_speech(text):
     try:
+        # Docker/Linux Fallback using espeak CLI (bypass audio driver)
+        if tts_engine == "espeak_cli" or os.name == 'posix':
+            temp_file = "temp_audio.wav"
+            try:
+                subprocess.run(["espeak", "-s", "150", "-w", temp_file, text], check=True)
+                if os.path.exists(temp_file):
+                    with open(temp_file, 'rb') as f:
+                        audio_bytes = f.read()
+                    os.remove(temp_file)
+                    return audio_bytes
+            except Exception as e:
+                 print(f"Espeak error: {e}")
+                 pass
+            # If espeak failed or not posix, try standard way if engine exists
+            
         with tts_lock:
-            if tts_engine is None:
+            if tts_engine is None or tts_engine == "espeak_cli":
                 return None
             temp_file = "temp_audio.wav"
             tts_engine.save_to_file(text, temp_file)
@@ -658,6 +691,18 @@ def ml_websocket(ws):
             ws.close()
             return
         if model is None or hands is None:
+            path = "."  # current directory
+
+            for name in os.listdir(path):
+                full_path = os.path.join(path, name)
+                
+                if os.path.isfile(full_path):
+                    size = os.path.getsize(full_path)
+                    print(f"{name} - {size} bytes")
+            print(os.listdir("."))
+            print(hands)
+            print("model is")
+            print(model)
             ws.send(json.dumps({'error': 'Model not loaded'}))
             return
         frame_queue = queue.LifoQueue(maxsize=5)

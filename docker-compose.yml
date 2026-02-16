@@ -1,0 +1,67 @@
+# ============================================================
+# Sign Language App - Docker Compose
+# ============================================================
+# Services:
+#   1. db: PostgreSQL 16
+#   2. backend: Flask API (uses the pre-built image)
+#
+# Usage:
+#   docker-compose up -d             (start in background)
+#   docker-compose logs -f backend   (view backend logs)
+#   docker-compose down              (stop and remove)
+# ============================================================
+
+services:
+  # ---------- PostgreSQL Database ----------
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: anant
+      POSTGRES_PASSWORD: secret_2026
+      POSTGRES_DB: signlanguage
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U anant -d signlanguage"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------- Flask Backend ----------
+  backend:
+    # Use the image we just pushed
+    image: anantgaur/signlang-backend:latest
+    pull_policy: always
+    # Or start a build from source if you prefer:
+    # build:
+    #   context: ./backend
+    #   dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      # Database connection (points to the 'db' service)
+      POSTGRES_USER: anant
+      POSTGRES_PASSWORD: secret_2026
+      POSTGRES_DB: signlanguage
+      POSTGRES_HOST: db  # This matches the service name above
+      POSTGRES_PORT: 5432
+      # JWT
+      JWT_SECRET_KEY: change_this_to_a_secure_random_string_in_production
+      JWT_ACCESS_TOKEN_EXPIRES: 8640000
+      # Flask
+      FLASK_ENV: production
+      FLASK_DEBUG: 0
+    volumes:
+      # Persist user data and downloads
+      - ./backend/user_data:/app/user_data
+      - ./backend/downloads:/app/downloads
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:

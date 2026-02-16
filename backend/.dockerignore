@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+*.pyo
+*.log
+.env
+.git
+.gitignore
+downloads/
+user_data/
+hand_landmarker.task
+predictions.log
+temp_audio.wav
+*.exe
+node_modules/
+.venv/
+venv/
