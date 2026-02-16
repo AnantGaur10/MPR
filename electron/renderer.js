@@ -379,9 +379,7 @@ document.addEventListener('keydown', (e) => {
       ws.send(JSON.stringify({ type: isPaused ? 'PAUSE' : 'RESUME' }));
     }
   } else if (ws && ws.readyState === WebSocket.OPEN) {
-    if (key === 'A') {
-      ws.send(JSON.stringify({ type: 'AUTOCORRECT' }));
-    } else if (key === ' ') {
+    if (key === ' ') {
       e.preventDefault(); // Prevent page scroll
       ws.send(JSON.stringify({ type: 'SPACE' }));
     } else if (key === 'ENTER') {

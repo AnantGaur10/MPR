@@ -16,8 +16,6 @@ import pyttsx3
 from threading import Lock, Thread, Event
 import queue
 import time
-import requests
-import re
 import json
 from dotenv import load_dotenv
 from urllib.parse import parse_qs, urlparse
@@ -250,74 +248,6 @@ def text_to_speech(text):
         print(f"Error in text_to_speech: {e}")
         return None
 
-def get_llm_completion(current_text, conversation_history=[], sentence=""):
-    stripped_text = current_text.strip()
-    context = ""
-    if conversation_history:
-        recent_messages = conversation_history[-5:]
-        context = "\n".join([f"- {msg}" for msg in recent_messages])
-        context = f"\nPrevious conversation context:\n{context}\n"
-    if sentence.strip():
-        context += f"\nCurrent incomplete sentence: \"{sentence.strip()}\"\n"
-    if len(stripped_text) < 2 and not sentence.strip() and not conversation_history:
-        return ""
-    if stripped_text:
-        prompt = f"""You are an autocomplete assistant for sign language text input. Given a partial word and context, predict the most likely full word it is intended to be. Use the conversation history and current sentence to understand context and make a better prediction.
-Do not add any extra words, explanations, or punctuation. Return ONLY the single, most likely completed word.
-{context}
-Example 1:
-Current sentence: "I WANT TO GO"
-Input: 'HOM'
-Output: 'HOME'
-Example 2:
-Input: 'HELPO'
-Output: 'HELLO'
-Example 3:
-Current sentence: "MY NAME IS"
-Input: 'J'
-Output: 'JOHN'
-Example 4:
-Input: 'HOP'
-Output:'HOW'
-Current partial word: "{stripped_text}"
-Completed word:"""
-    else:
-        prompt = f"""You are a predictive text assistant for sign language input. Given a conversation context and an incomplete sentence, predict the most likely NEXT word. Use the conversation history to understand context.
-Do not add any extra words, explanations, or punctuation. Return ONLY the single, most likely next word use the examples above and below as.
-{context}
-Example 1:
-Current sentence: "I WANT TO"
-Output: 'GO'
-Example 2:
-Current sentence: "MY NAME"
-Output: 'IS'
-Example 3:
-Previous: "HOW ARE YOU"
-Current sentence: "I AM"
-Output: 'GOOD'
-Predict the next word:"""
-    try:
-        response = requests.post(
-            'http://localhost:11434/api/generate',
-            json={
-                'model': 'phi3:mini',
-                'prompt': prompt,
-                'stream': False,
-                'options': {
-                    'num_predict': 20,
-                    'temperature': 0.2,
-                }
-            },
-            timeout=10.0
-        )
-        response.raise_for_status()
-        data = response.json()
-        completed_word = data.get('response', '').strip().upper()
-        completed_word = re.split(r'[\s\.\?\!\n]', completed_word)[0].strip()
-        return completed_word
-    except Exception as e:
-        print(f"Error in get_llm_completion: {e}")
-        return ""
 
 @app.route('/')
 def home():
@@ -478,7 +408,7 @@ def frame_processor(ws, frame_queue, control_queue, stop_event, user_id=None):
     no_hand_frames = 0
     last_confirmed_gesture = None
     last_confirmed_time = 0
-    gesture_cooldown = 2.5
+    gesture_cooldown = 1.8
     is_paused = False
     total_predictions = 0
     successful_predictions = 0
@@ -507,15 +437,6 @@ def frame_processor(ws, frame_queue, control_queue, stop_event, user_id=None):
                         same_gesture_count = 0
                         letter_hold_count = 0
                         letter_already_doubled = False
-                elif control['type'] == 'AUTOCORRECT':
-                    completed_word = get_llm_completion(current_word, conversation_history, sentence)
-                    if completed_word:
-                        current_word = completed_word
-                        send_state_update(ws, current_word, sentence)
-                    if current_word:
-                        audio = text_to_speech(current_word)
-                        if audio:
-                            ws.send(audio)
                 elif control['type'] == 'SPACE':
                     if current_word:
                         sentence += current_word + " "
