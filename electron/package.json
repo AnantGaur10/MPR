@@ -1,0 +1,63 @@
+{
+  "name": "sign-language-gestures-desktop-app",
+  "version": "1.0.0",
+  "description": "Captures video and routes ML audio to a virtual mic.",
+  "author": "Anant Gaur",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^40.4.1",
+    "electron-builder": "^26.7.0"
+  },
+  "build": {
+    "appId": "com.anant.sign-language-gestures-audio",
+    "productName": "Sign Language Gestures",
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer.js",
+      "index.html",
+      "style.css",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "build-resources",
+        "to": "app/build-resources",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "../backend",
+        "to": "app/backend",
+        "filter": [
+          "**/*",
+          "!**/__pycache__/*",
+          "!**/*.log",
+          "!.env",
+          "!user_data/**/*"
+        ]
+      },
+      {
+        "from": "../model.p",
+        "to": "app/model.p"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "requestedExecutionLevel": "requireAdministrator"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "include": "build-resources/installer.nsh"
+    }
+  }
+}

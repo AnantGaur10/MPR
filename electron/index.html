@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <title>Sign Language Gestures to Audio</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <div id="auth-view" class="auth-view" style="display: flex;">
+    <div class="auth-card">
+      <h2 id="auth-title">Sign In</h2>
+      <div class="auth-tabs">
+        <div class="auth-tab active" data-mode="signin">Sign In</div>
+        <div class="auth-tab" data-mode="signup">Sign Up</div>
+      </div>
+      <form id="auth-form">
+        <input type="text" id="auth-name" placeholder="Full Name" style="display: none;">
+        <input type="email" id="auth-email" placeholder="Email" required>
+        <input type="password" id="auth-password" placeholder="Password" required>
+        <button type="submit" id="auth-submit" class="auth-btn">Sign In</button>
+      </form>
+      <div id="auth-error" class="error-text"></div>
+    </div>
+  </div>
+
+  <!-- Main App (Hidden by default) -->
+  <div id="main-app" class="app-container" style="display: none;">
+    <div class="header-section">
+      <div class="header-badge">LIVE</div>
+      <h1 class="app-title">Sign Language Gestures to Speech</h1>
+      <div class="user-info">
+        <span id="user-display" class="user-name"></span>
+        <button id="show-profile-btn" class="profile-icon">👤</button>
+      </div>
+    </div>
+
+    <div class="display-panels">
+      <div class="word-display">
+        <div class="word-label">Current Word</div>
+        <div id="current-word" class="word-text">---</div>
+      </div>
+      <div class="sentence-display">
+        <div class="sentence-label">Sentence</div>
+        <div id="current-sentence" class="sentence-text">---</div>
+      </div>
+    </div>
+
+    <div class="video-container">
+      <div class="video-frame">
+        <video id="localVideo" autoplay playsinline muted></video>
+        <div class="video-indicator"></div>
+      </div>
+    </div>
+
+    <div class="settings-container">
+      <label for="video-source" class="settings-label">📷 Camera Source</label>
+      <select id="video-source" class="video-select"></select>
+    </div>
+
+    <div class="controls-container">
+      <button id="power-button" class="power-button">
+        <svg viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="40" fill="none" stroke="currentColor" stroke-width="3" />
+        </svg>
+      </button>
+      <div id="status-text" class="status-text">Ready</div>
+    </div>
+
+    <div class="keyboard-hints">
+      <div class="hint"><kbd>A</kbd> Autocorrect</div>
+      <div class="hint"><kbd>Space</kbd> Add</div>
+      <div class="hint"><kbd>Enter</kbd> Speak</div>
+      <div class="hint"><kbd>Bksp</kbd> Delete</div>
+      <div class="hint"><kbd>P</kbd> Pause</div>
+    </div>
+  </div>
+
+  <!-- Profile Modal -->
+  <div id="profile-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Custom Signs</h2>
+        <button id="close-modal">&times;</button>
+      </div>
+      <div class="recording-box">
+        <input type="text" id="sign-name-input" placeholder="Sign Name">
+        <button id="start-rec-btn">Record</button>
+        <div id="rec-progress" style="display:none;">
+          <div id="rec-fill"></div>
+        </div>
+      </div>
+      <div id="signs-list"></div>
+      <button id="train-btn">Train Model</button>
+      <button id="logout-btn" class="logout-btn">Logout</button>
+    </div>
+  </div>
+  <script src="./renderer.js"></script>
+</body>
+
+</html>
