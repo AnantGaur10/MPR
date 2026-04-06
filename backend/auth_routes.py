@@ -8,8 +8,10 @@ auth_bp = Blueprint('auth', __name__, url_prefix='/api/auth')
 
 @auth_bp.route('/signup', methods=['POST'])
 def signup():
+    print("DEBUG: Reached /signup route")
     try:
         data = request.get_json()
+        print(f"DEBUG: Parsed JSON data: {data}")
         if not data:
             return jsonify({'error': 'No data provided'}), 400
         email = data.get('email', '').strip().lower()

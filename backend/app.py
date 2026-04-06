@@ -154,6 +154,32 @@ def is_hand_stable(hand_landmarks, threshold=0.02):
         print(f"Error in is_hand_stable: {e}")
         return False
 
+def normalize_lighting(frame):
+    """
+    Adaptive lighting normalization using CLAHE on the L (luminance) channel.
+    Also returns a lighting assessment: 'TOO_DARK', 'TOO_BRIGHT', or 'GOOD'.
+    """
+    lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
+    l, a, b = cv2.split(lab)
+
+    # Assess raw lighting BEFORE correction
+    mean_lum = float(np.mean(l))
+    overexposed_pct = float(np.sum(l > 240) / l.size * 100)
+    underexposed_pct = float(np.sum(l < 30) / l.size * 100)
+
+    if overexposed_pct > 15 or mean_lum > 200:
+        lighting = "TOO_BRIGHT"
+    elif underexposed_pct > 40 or mean_lum < 50:
+        lighting = "TOO_DARK"
+    else:
+        lighting = "GOOD"
+
+    # Apply CLAHE correction
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    l = clahe.apply(l)
+    corrected = cv2.cvtColor(cv2.merge([l, a, b]), cv2.COLOR_LAB2BGR)
+    return corrected, lighting, mean_lum, overexposed_pct, underexposed_pct
+
 def predict_sign(image_data, pred_buffer, frame_count, local_hand_buffer, user_model=None):
     local_model = model
     try:
@@ -170,6 +196,16 @@ def predict_sign(image_data, pred_buffer, frame_count, local_hand_buffer, user_m
         img = Image.open(io.BytesIO(img_bytes))
         # Convert PIL (RGB) to OpenCV (BGR) and flip
         frame = cv2.flip(cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR), 1)
+        # Normalize lighting and assess conditions
+        frame, lighting, mean_lum, bright_pct, dark_pct = normalize_lighting(frame)
+        # Log lighting every ~30 frames (once per second at 30fps)
+        if frame_count % 30 == 0:
+            if lighting == "TOO_BRIGHT":
+                print(f"⚠️  LIGHTING: {lighting} | Mean Lum: {mean_lum:.0f}/255 | Overexposed: {bright_pct:.1f}% of pixels")
+            elif lighting == "TOO_DARK":
+                print(f"⚠️  LIGHTING: {lighting} | Mean Lum: {mean_lum:.0f}/255 | Underexposed: {dark_pct:.1f}% of pixels")
+            else:
+                print(f"✅ LIGHTING: {lighting} | Mean Lum: {mean_lum:.0f}/255")
         results = hands.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
         
         if results.multi_hand_landmarks:
@@ -206,13 +242,10 @@ def predict_sign(image_data, pred_buffer, frame_count, local_hand_buffer, user_m
                     # Logic: If Global is very confident (>85%), keep it for basic letters.
                     # This prevents the "only one custom sign" bias from taking over everything.
                     if user_gesture != "_NONE_":
-                        # If User model is extremely sure (>98%) AND Global is confused (<70%)
-                        if user_conf > 0.98 and global_conf < 0.70:
-                            single_gesture = user_gesture
-                            single_conf = user_conf
-                            single_source = "USER"
-                        # If User is significantly better than Global
-                        elif user_conf > global_conf + 0.30:
+                        # Ensure User model is extremely confident (>90%)
+                        # AND the global model is relatively unsure.
+                        # This strict gap prevents custom signs from overriding clear ASL alphabets.
+                        if user_conf >= 0.90 and (user_conf - global_conf >= 0.40):
                             single_gesture = user_gesture
                             single_conf = user_conf
                             single_source = "USER"
